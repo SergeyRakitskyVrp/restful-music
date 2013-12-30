@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:mvc="http://www.springframework.org/schema/mvc" xmlns:sec="http://www.springframework.org/schema/security"
+	xmlns:oauth="http://www.springframework.org/schema/security/oauth2" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xsi:schemaLocation="http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.2.xsd
+		http://www.springframework.org/schema/security/oauth2 http://www.springframework.org/schema/security/spring-security-oauth2-1.0.xsd
+		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-3.2.xsd
+		http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.1.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.2.xsd">
+
+
+  	<http auto-config='true' use-expressions="true" xmlns="http://www.springframework.org/schema/security">
+	   <intercept-url pattern="/**" access="true"  />
+	    <custom-filter ref="oauth2ClientFilter" after="EXCEPTION_TRANSLATION_FILTER" />
+	    <form-login authentication-failure-url="/login.jsp?authentication_error=true" default-target-url="/index.jsp"
+			login-page="/login.jsp" login-processing-url="/login.do" />
+		<logout logout-success-url="/index.jsp" logout-url="/logout.do" />
+	</http>
+	<!--apply the oauth client context -->
+	<oauth:client id="oauth2ClientFilter" />
+	
+	<!--define an oauth 2 resource for facebook. according to the facebook docs, the 'client-id' is the App ID, and the 'client-secret' 
+		is the App Secret -->
+	<oauth:resource id="vk" type="authorization_code" client-id="3902128" client-secret="9hTn0HnWlidkwWOBzCZt" scope="audio"
+		authentication-scheme="query" access-token-uri="https://oauth.vk.com/access_token" user-authorization-uri="https://oauth.vk.com/authorize"
+		 client-authentication-scheme="form" />
+	
+	<authentication-manager xmlns="http://www.springframework.org/schema/security">
+		<authentication-provider>
+			<user-service>
+				<user name="user" password="user" authorities="ROLE_USER" />
+			</user-service>
+		</authentication-provider>
+	</authentication-manager>
+
+	<mvc:default-servlet-handler />
+
+	<mvc:annotation-driven>
+		<mvc:message-converters>
+			<bean class="org.springframework.http.converter.BufferedImageHttpMessageConverter" />
+		</mvc:message-converters>
+	</mvc:annotation-driven>
+
+	<bean id="contentViewResolver" class="org.springframework.web.servlet.view.ContentNegotiatingViewResolver">
+		<property name="mediaTypes">
+			<map>
+				<entry key="json" value="application/json" />
+			</map>
+		</property>
+		<property name="defaultViews">
+			<bean class="org.springframework.web.servlet.view.json.MappingJacksonJsonView" />
+		</property>
+	</bean>
+	
+	<!--Basic application beans. -->
+       <bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+               <property name="prefix" value="/WEB-INF/" />
+               <property name="suffix" value=".jsp" />
+       </bean>
+	
+	
+	<context:property-placeholder location="classpath:params.properties"/>
+	<context:annotation-config />
+	<context:component-scan base-package="by.wind.restful" />
+	
+	<bean id ="lastFmController" class="by.wind.restful.mvc.LastFmController"/>
+	
+	<bean id="vkController" class="by.wind.restful.mvc.VkController">
+		<property name="vkRestTemplate">
+			<oauth:rest-template resource="vk">
+				<property name="messageConverters">
+					<list>
+						<bean class="org.springframework.http.converter.json.MappingJacksonHttpMessageConverter">
+							<property name="supportedMediaTypes">
+								<list>
+									<bean class="org.springframework.http.MediaType">
+										<!--facebook sends its json as text/javascript for some reason -->
+										<constructor-arg value="text" />
+										<constructor-arg value="javascript" />
+									</bean>
+									<bean class="org.springframework.http.MediaType">
+										<constructor-arg value="application" />
+										<constructor-arg value="json" />
+									</bean>
+								</list>
+							</property>
+						</bean>
+					</list>
+				</property>
+			</oauth:rest-template>
+		</property>
+	</bean>
+
+</beans>
